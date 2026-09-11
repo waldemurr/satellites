@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проектирование спутниковой группировки</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="bg-primary text-white py-4 mb-4">
+            <div class="container">
+                <h1 class="display-6">Проектирование устойчивой спутниковой группировки</h1>
+                <p class="lead">Сервис для анализа доступности связи в северных районах</p>
+            </div>
+        </header>
+
+        <main class="container">
+            <div class="row">
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Управление данными</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6 class="mb-3">Выберите сценарий:</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" value="01_full_constellation.json" id="scenario1">
+                                    <label class="form-check-label" for="scenario1">Полная группировка</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" value="02_first_launch.json" id="scenario2">
+                                    <label class="form-check-label" for="scenario2">Первая очередь запуска</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" value="03_satellite_outages.json" id="scenario3">
+                                    <label class="form-check-label" for="scenario3">Недоступность десяти аппаратов</label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" value="04_link_range.json" id="scenario4">
+                                    <label class="form-check-label" for="scenario4">Ограничение дальности связи</label>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="timestamp" class="form-label">Время (сек):</label>
+                                    <input type="number" class="form-control" id="timestamp" value="0" min="0">
+                                </div>
+                                <button class="btn btn-primary w-100" onclick="calculate()">Рассчитать состояние сети</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Визуализация спутниковой группировки</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="satellite-map" class="map-container">
+                                <canvas id="satelliteCanvas" width="600" height="400"></canvas>
+                                <p class="text-center mt-3 text-muted">Интерактивная карта спутниковой группировки</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Результаты расчета</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="results-content">
+                                <p class="text-muted">Выберите сценарий и нажмите "Рассчитать" для просмотра результатов</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="bg-dark text-white py-3 mt-4">
+            <div class="container text-center">
+                <p class="mb-0">Сервис проектирования спутниковой группировки &copy; 2026</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

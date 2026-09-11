@@ -3,37 +3,34 @@
 """
 import os
 import json
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import numpy as np
 
 # Импортируем расчетный модуль
 try:
     import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'module'))
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'module'))
     from geometry import load, validate, snapshot
     CALCULATION_MODULE_AVAILABLE = True
 except ImportError:
     CALCULATION_MODULE_AVAILABLE = False
     print("Расчетный модуль не доступен")
 
+# Настройка директорий
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+STATIC_DIR = os.path.join(BASE_DIR, 'static')
+
 def create_app():
     """Создание Flask приложения"""
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
     CORS(app)
-    
-    # Настройка директории для статических файлов
-    static_dir = os.path.join(os.path.dirname(__file__), '..', 'static')
-    if not os.path.exists(static_dir):
-        os.makedirs(static_dir)
     
     @app.route('/')
     def index():
         """Главная страница"""
-        return jsonify({
-            'message': 'Сервис проектирования спутниковой группировки',
-            'status': 'running'
-        })
+        return render_template('index.html')
     
     @app.route('/api/health')
     def health():
@@ -47,7 +44,7 @@ def create_app():
     def get_data_files():
         """Получение списка доступных файлов данных"""
         try:
-            data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+            data_dir = os.path.join(BASE_DIR, 'data')
             files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
             return jsonify({
                 'files': files
@@ -61,7 +58,7 @@ def create_app():
     def get_data_file(filename):
         """Получение содержимого файла данных"""
         try:
-            file_path = os.path.join(os.path.dirname(__file__), '..', 'data', filename)
+            file_path = os.path.join(BASE_DIR, 'data', filename)
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return jsonify(data)
@@ -84,7 +81,7 @@ def create_app():
             timestamp = data.get('timestamp', 0)
             
             # Загружаем файл
-            file_path = os.path.join(os.path.dirname(__file__), '..', 'data', filename)
+            file_path = os.path.join(BASE_DIR, 'data', filename)
             scenario = load(file_path)
             
             # Выполняем расчет
@@ -133,4 +130,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5002)

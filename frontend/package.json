@@ -1,0 +1,13 @@
+{
+  "name": "satellite-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for satellite constellation design project",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo 'Frontend development server'",
+    "build": "echo 'Frontend build process'"
+  },
+  "keywords": ["satellite", "frontend", "react"],
+  "author": "Satellite Project Team",
+  "license": "MIT"
+}

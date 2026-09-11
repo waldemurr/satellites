@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+      - ./module:/app/module
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=backend/run.py
+    command: flask run --host=0.0.0.0 --port=5001 --debugger --reload
+    depends_on:
+      - redis
+    networks:
+      - satellite-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - satellite-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    networks:
+      - satellite-network
+
+networks:
+  satellite-network:
+    driver: bridge
