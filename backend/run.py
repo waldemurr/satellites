@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""
-Скрипт для запуска веб-приложения
-"""
+"""Скрипт запуска веб-приложения."""
 import os
 import sys
 
-# Добавляем путь к модулям
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.main import create_app
+from main import create_app
 
 if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    create_app().run(debug=True, host='0.0.0.0', port=5002)
