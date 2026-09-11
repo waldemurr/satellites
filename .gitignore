@@ -1,0 +1,61 @@
+# Папки и файлы Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Виртуальные окружения
+.env
+.venv
+venv
+env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+
+# Временные файлы
+*~
+*.tmp
+*.temp
+
+# proj_data
+data/*.json
+
+# agent stuff
+/SOUL.md
+/AGENTS.md
+/TOOLS.md
+/PLAN.md
+/TASK.md
+/BOOTSTRAP.md
+/CRITERIONS.md
+/DATA.md
+/HEARTBEAT.md
+/IDENTITY.md
+/openclaw-workspace-state.json
+/USER.md
