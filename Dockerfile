@@ -24,7 +24,7 @@ COPY module/ /app/module/
 ENV PYTHONPATH=/app
 
 # Экспозиция порта
-EXPOSE 5001
+EXPOSE 5002
 
 # Запуск приложения
 CMD ["python", "/app/backend/run.py"]

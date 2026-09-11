@@ -7,20 +7,44 @@ from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import numpy as np
 
-# Импортируем расчетный модуль
-try:
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), 'module'))
-    from geometry import load, validate, snapshot
-    CALCULATION_MODULE_AVAILABLE = True
-except ImportError:
-    CALCULATION_MODULE_AVAILABLE = False
-    print("Расчетный модуль не доступен")
-
 # Настройка директорий
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Для Docker и правильного пути к данным
+DATA_DIR = os.path.join(BASE_DIR, '..', 'data')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
+
+# Импортируем расчетный модуль
+try:
+    # Добавляем путь к модулям
+    sys.path.insert(0, os.path.join(BASE_DIR, 'module'))
+    
+    # Импортируем основные модули
+    from geometry import load, validate, snapshot
+    CALCULATION_MODULE_AVAILABLE = True
+    
+    # Импортируем дополнительные модули для расширенной функциональности
+    import importlib.util
+    
+    # Импорт модулей с проверкой
+    routing_spec = importlib.util.spec_from_file_location("routing", os.path.join(BASE_DIR, 'module', 'routing.py'))
+    routing = importlib.util.module_from_spec(routing_spec)
+    routing_spec.loader.exec_module(routing)
+    
+    availability_spec = importlib.util.spec_from_file_location("availability", os.path.join(BASE_DIR, 'module', 'availability.py'))
+    availability = importlib.util.module_from_spec(availability_spec)
+    availability_spec.loader.exec_module(availability)
+    
+    monte_carlo_spec = importlib.util.spec_from_file_location("monte_carlo", os.path.join(BASE_DIR, 'module', 'monte_carlo.py'))
+    monte_carlo = importlib.util.module_from_spec(monte_carlo_spec)
+    monte_carlo_spec.loader.exec_module(monte_carlo)
+    
+    EXTENDED_MODULES_AVAILABLE = True
+    
+except ImportError as e:
+    CALCULATION_MODULE_AVAILABLE = False
+    EXTENDED_MODULES_AVAILABLE = False
+    print(f"Расчетный модуль не доступен: {e}")
 
 def create_app():
     """Создание Flask приложения"""
@@ -37,15 +61,19 @@ def create_app():
         """Проверка состояния сервиса"""
         return jsonify({
             'status': 'healthy',
-            'calculation_module': CALCULATION_MODULE_AVAILABLE
+            'calculation_module': CALCULATION_MODULE_AVAILABLE,
+            'extended_modules': EXTENDED_MODULES_AVAILABLE
         })
     
     @app.route('/api/data/files')
     def get_data_files():
         """Получение списка доступных файлов данных"""
         try:
-            data_dir = os.path.join(BASE_DIR, 'data')
-            files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
+            # Проверяем, существует ли директория
+            if os.path.exists(DATA_DIR):
+                files = [f for f in os.listdir(DATA_DIR) if f.endswith('.json')]
+            else:
+                files = []
             return jsonify({
                 'files': files
             })
@@ -58,7 +86,7 @@ def create_app():
     def get_data_file(filename):
         """Получение содержимого файла данных"""
         try:
-            file_path = os.path.join(BASE_DIR, 'data', filename)
+            file_path = os.path.join(DATA_DIR, filename)
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return jsonify(data)
@@ -81,7 +109,7 @@ def create_app():
             timestamp = data.get('timestamp', 0)
             
             # Загружаем файл
-            file_path = os.path.join(BASE_DIR, 'data', filename)
+            file_path = os.path.join(DATA_DIR, filename)
             scenario = load(file_path)
             
             # Выполняем расчет
@@ -124,6 +152,66 @@ def create_app():
         except Exception as e:
             return jsonify({
                 'error': f'Ошибка валидации: {str(e)}'
+            }), 500
+    
+    @app.route('/api/route/<filename>/<client_id>/<gateway_id>')
+    def calculate_route(filename, client_id, gateway_id):
+        """Расчет маршрута между клиентом и шлюзом"""
+        try:
+            if not EXTENDED_MODULES_AVAILABLE:
+                return jsonify({
+                    'error': 'Расширенные модули недоступны'
+                }), 500
+                
+            file_path = os.path.join(DATA_DIR, filename)
+            scenario = load(file_path)
+            
+            # Используем routing.py для маршрутизации
+            result = routing.scenario_routing_report(scenario, strategy='hops')
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({
+                'error': f'Ошибка маршрутизации: {str(e)}'
+            }),  500
+    
+    @app.route('/api/availability/<filename>')
+    def calculate_availability(filename):
+        """Расчет доступности связи"""
+        try:
+            if not EXTENDED_MODULES_AVAILABLE:
+                return jsonify({
+                    'error': 'Расширенные модули недоступны'
+                }), 500
+                
+            file_path = os.path.join(DATA_DIR, filename)
+            scenario = load(file_path)
+            
+            # Используем availability.py для расчета доступности
+            result = availability.scenario_availability(scenario)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({
+                'error': f'Ошибка расчета доступности: {str(e)}'
+            }), 500
+    
+    @app.route('/api/monte-carlo/<filename>')
+    def monte_carlo_analysis(filename):
+        """Монте-Карло анализ устойчивости"""
+        try:
+            if not EXTENDED_MODULES_AVAILABLE:
+                return jsonify({
+                    'error': 'Расширенные модули недоступны'
+                }), 500
+                
+            file_path = os.path.join(DATA_DIR, filename)
+            scenario = load(file_path)
+            
+            # Используем monte_carlo.py для анализа рисков
+            result = monte_carlo.monte_carlo_risk(scenario, n_trials=100)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({
+                'error': f'Ошибка Монте-Карло анализа: {str(e)}'
             }), 500
     
     return app
