@@ -27,6 +27,7 @@
 Как использовать:
     python availability.py scenario.json
 """
+
 from __future__ import annotations
 import json
 import math
@@ -74,8 +75,8 @@ def build_flow_graph(s: dict, snap: dict, client_id: str, gateway_ids: list[str]
     Несколько шлюзов объединяются через виртуальный сток с
     бесконечной ёмкостью рёбер gateway->sink (стандартный приём
     multi-sink max-flow)."""
-    e = s['environment']
-    active_sat_ids = [sat['id'] for sat in snap['satellites'] if sat['active']]
+    e = s["environment"]
+    active_sat_ids = [sat["id"] for sat in snap["satellites"] if sat["active"]]
     sat_index = {sid: i for i, sid in enumerate(active_sat_ids)}
     n_sat = len(active_sat_ids)
 
@@ -92,13 +93,15 @@ def build_flow_graph(s: dict, snap: dict, client_id: str, gateway_ids: list[str]
     def add_edge(u, v, cap):
         if cap <= 0:
             return
-        rows.append(u); cols.append(v); data.append(cap)
+        rows.append(u)
+        cols.append(v)
+        data.append(cap)
 
-    for a, b, dist in snap['edges']:
+    for a, b, dist in snap["edges"]:
         a_is_sat = a in sat_index
         b_is_sat = b in sat_index
         if a_is_sat and b_is_sat:
-            cap = link_capacity(dist, e['isl_range_km'])
+            cap = link_capacity(dist, e["isl_range_km"])
             ia, ib = SAT0 + sat_index[a], SAT0 + sat_index[b]
             add_edge(ia, ib, cap)
             add_edge(ib, ia, cap)
@@ -108,10 +111,10 @@ def build_flow_graph(s: dict, snap: dict, client_id: str, gateway_ids: list[str]
             sat_id = b if not a_is_sat else a
             if ground_id not in (client_id, *gateway_ids):
                 continue  # прочие наземные точки в путь не включаем
-            el = snap['elevation_deg'].get(ground_id, {}).get(sat_id)
+            el = snap["elevation_deg"].get(ground_id, {}).get(sat_id)
             if el is None:
                 continue
-            frac = ground_link_max_range(el, e['min_elevation_deg'])
+            frac = ground_link_max_range(el, e["min_elevation_deg"])
             cap = max(1, int(round(frac * CAP_UNITS))) if frac > 0 else 0
             isat = SAT0 + sat_index[sat_id]
             if ground_id == client_id:
@@ -130,12 +133,15 @@ def build_flow_graph(s: dict, snap: dict, client_id: str, gateway_ids: list[str]
 
 
 def scenario_availability(s: dict) -> dict:
-    e = s['environment']
-    gateways = [g['id'] for g in s['ground_sites'] if g['role'] == 'gateway']
-    clients = [g['id'] for g in s['ground_sites'] if g['role'] == 'client']
-    times = list(range(0, e['horizon_s'], e['step_s']))
+    e = s["environment"]
+    gateways = [g["id"] for g in s["ground_sites"] if g["role"] == "gateway"]
+    clients = [g["id"] for g in s["ground_sites"] if g["role"] == "client"]
+    times = list(range(0, e["horizon_s"], e["step_s"]))
 
-    result = {cid: {'up_steps': 0, 'flow_sum': 0.0, 'total_steps': len(times)} for cid in clients}
+    result = {
+        cid: {"up_steps": 0, "flow_sum": 0.0, "total_steps": len(times)}
+        for cid in clients
+    }
 
     for t in times:
         snap = snapshot(s, t)
@@ -144,26 +150,32 @@ def scenario_availability(s: dict) -> dict:
             flow = maximum_flow(graph, src, sink)
             f = flow.flow_value
             if f > 0:
-                result[cid]['up_steps'] += 1
-                result[cid]['flow_sum'] += f
+                result[cid]["up_steps"] += 1
+                result[cid]["flow_sum"] += f
 
-    report = {'meta': s['meta'], 'target_availability': e['target_availability'], 'clients': {}}
+    report = {
+        "meta": s["meta"],
+        "target_availability": e["target_availability"],
+        "clients": {},
+    }
     for cid, r in result.items():
-        avail = r['up_steps'] / r['total_steps']
-        avg_flow = (r['flow_sum'] / r['up_steps']) if r['up_steps'] else 0.0
-        report['clients'][cid] = {
-            'availability': round(avail, 4),
-            'meets_target': avail >= e['target_availability'],
-            'avg_relative_capacity': round(avg_flow / (CAP_UNITS * 10), 4),  # доля от насыщения стока
-            'up_steps': r['up_steps'],
-            'total_steps': r['total_steps'],
+        avail = r["up_steps"] / r["total_steps"]
+        avg_flow = (r["flow_sum"] / r["up_steps"]) if r["up_steps"] else 0.0
+        report["clients"][cid] = {
+            "availability": round(avail, 4),
+            "meets_target": avail >= e["target_availability"],
+            "avg_relative_capacity": round(
+                avg_flow / (CAP_UNITS * 10), 4
+            ),  # доля от насыщения стока
+            "up_steps": r["up_steps"],
+            "total_steps": r["total_steps"],
         }
     return report
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) < 2:
-        raise SystemExit('Usage: python availability.py scenario.json')
+        raise SystemExit("Usage: python availability.py scenario.json")
     scenario = load(sys.argv[1])
     rep = scenario_availability(scenario)
     print(json.dumps(rep, ensure_ascii=False, indent=2))

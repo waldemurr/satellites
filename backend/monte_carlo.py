@@ -24,6 +24,7 @@ monte_carlo.py — вероятностная оценка риска через
 Использование:
     python monte_carlo.py scenario.json [--trials 300] [--mode poisson|fixed_k]
 """
+
 from __future__ import annotations
 import argparse
 import json
@@ -39,13 +40,16 @@ from geometry import load, positions, ground_position, R
 # Кэш геометрии, не зависящий от отказов (считается один раз на сценарий)
 # --------------------------------------------------------------------------
 
+
 def build_geometry_cache(s: dict, times: list[int]) -> dict:
-    e, d = s['environment'], s['design']
-    eligible_mask_static = np.array([sat['launch_batch'] <= d['launch_stage'] for sat in d['satellites']])
-    ids_static = [sat['id'] for sat in d['satellites']]
+    e, d = s["environment"], s["design"]
+    eligible_mask_static = np.array(
+        [sat["launch_batch"] <= d["launch_stage"] for sat in d["satellites"]]
+    )
+    ids_static = [sat["id"] for sat in d["satellites"]]
     eligible_ids = [sid for sid, ok in zip(ids_static, eligible_mask_static) if ok]
 
-    cache = {'eligible_ids': eligible_ids, 'by_t': {}}
+    cache = {"eligible_ids": eligible_ids, "by_t": {}}
     for t in times:
         ids, _, xyz = positions(s, t)
         i, j = np.triu_indices(len(ids), 1)
@@ -54,7 +58,12 @@ def build_geometry_cache(s: dict, times: list[int]) -> dict:
         denom = np.sum(delta * delta, axis=1)
         lam = np.clip(-np.sum(xyz[i] * delta, axis=1) / np.maximum(denom, 1e-12), 0, 1)
         closest = np.linalg.norm(xyz[i] + lam[:, None] * delta, axis=1)
-        ok = (dist < e['isl_range_km']) & (closest > R) & eligible_mask_static[i] & eligible_mask_static[j]
+        ok = (
+            (dist < e["isl_range_km"])
+            & (closest > R)
+            & eligible_mask_static[i]
+            & eligible_mask_static[j]
+        )
 
         isl_adj: dict[str, list[str]] = defaultdict(list)
         for a, b in zip(i[ok], j[ok]):
@@ -62,15 +71,15 @@ def build_geometry_cache(s: dict, times: list[int]) -> dict:
             isl_adj[ids[b]].append(ids[a])
 
         ground_visible: dict[str, set[str]] = {}
-        for g in s['ground_sites']:
+        for g in s["ground_sites"]:
             gp = ground_position(g)
             dif = xyz - gp
             dl = np.linalg.norm(dif, axis=1)
             el = np.degrees(np.arcsin(np.clip(dif @ (gp / R) / dl, -1, 1)))
-            vis = (el >= e['min_elevation_deg']) & eligible_mask_static
-            ground_visible[g['id']] = {ids[k] for k in np.where(vis)[0]}
+            vis = (el >= e["min_elevation_deg"]) & eligible_mask_static
+            ground_visible[g["id"]] = {ids[k] for k in np.where(vis)[0]}
 
-        cache['by_t'][t] = {'isl_adj': isl_adj, 'ground_visible': ground_visible}
+        cache["by_t"][t] = {"isl_adj": isl_adj, "ground_visible": ground_visible}
     return cache
 
 
@@ -78,8 +87,14 @@ def build_geometry_cache(s: dict, times: list[int]) -> dict:
 # Генераторы случайных отказов
 # --------------------------------------------------------------------------
 
-def generate_failures_poisson(sat_ids: list[str], horizon_s: int, rate_per_day: float,
-                               mean_repair_h: float, rng: np.random.Generator):
+
+def generate_failures_poisson(
+    sat_ids: list[str],
+    horizon_s: int,
+    rate_per_day: float,
+    mean_repair_h: float,
+    rng: np.random.Generator,
+):
     """Каждый спутник — независимый пуассоновский процесс отказов:
     rate_per_day — среднее число отказов в сутки на один аппарат,
     mean_repair_h — среднее время восстановления (экспоненциальное распределение)."""
@@ -96,8 +111,13 @@ def generate_failures_poisson(sat_ids: list[str], horizon_s: int, rate_per_day: 
     return events
 
 
-def generate_failures_fixed_k(sat_ids: list[str], horizon_s: int, k: int,
-                               rng: np.random.Generator, start_frac_max: float = 0.5):
+def generate_failures_fixed_k(
+    sat_ids: list[str],
+    horizon_s: int,
+    k: int,
+    rng: np.random.Generator,
+    start_frac_max: float = 0.5,
+):
     """K случайно выбранных аппаратов одновременно уходят в отказ в случайный
     момент (до половины горизонта) и не восстанавливаются до конца горизонта —
     обобщение сценария 03_satellite_outages на случайный выбор аппаратов."""
@@ -111,14 +131,17 @@ def generate_failures_fixed_k(sat_ids: list[str], horizon_s: int, k: int,
 # Быстрая проверка связности одного клиента с использованием кэша
 # --------------------------------------------------------------------------
 
-def _connected(cache_t: dict, client_id: str, gateway_id: str, failed_now: set[str]) -> bool:
-    client_view = cache_t['ground_visible'].get(client_id, set()) - failed_now
+
+def _connected(
+    cache_t: dict, client_id: str, gateway_id: str, failed_now: set[str]
+) -> bool:
+    client_view = cache_t["ground_visible"].get(client_id, set()) - failed_now
     if not client_view:
         return False
-    gw_view = cache_t['ground_visible'].get(gateway_id, set()) - failed_now
+    gw_view = cache_t["ground_visible"].get(gateway_id, set()) - failed_now
     if not gw_view:
         return False
-    isl_adj = cache_t['isl_adj']
+    isl_adj = cache_t["isl_adj"]
     seen = set(client_view)
     q = deque(client_view)
     while q:
@@ -136,16 +159,23 @@ def _connected(cache_t: dict, client_id: str, gateway_id: str, failed_now: set[s
 # Основной Monte Carlo прогон
 # --------------------------------------------------------------------------
 
-def monte_carlo_risk(s: dict, n_trials: int = 300, step_sample: int = 1,
-                      mode: str = 'poisson', rate_per_day: float = 0.03,
-                      mean_repair_h: float = 6.0, k_fixed: int = 10,
-                      seed: int = 42) -> dict:
-    e = s['environment']
-    times = list(range(0, e['horizon_s'], e['step_s'] * step_sample))
+
+def monte_carlo_risk(
+    s: dict,
+    n_trials: int = 300,
+    step_sample: int = 1,
+    mode: str = "poisson",
+    rate_per_day: float = 0.03,
+    mean_repair_h: float = 6.0,
+    k_fixed: int = 10,
+    seed: int = 42,
+) -> dict:
+    e = s["environment"]
+    times = list(range(0, e["horizon_s"], e["step_s"] * step_sample))
     cache = build_geometry_cache(s, times)
-    sat_ids = cache['eligible_ids']
-    clients = [g['id'] for g in s['ground_sites'] if g['role'] == 'client']
-    gateways = [g['id'] for g in s['ground_sites'] if g['role'] == 'gateway']
+    sat_ids = cache["eligible_ids"]
+    clients = [g["id"] for g in s["ground_sites"] if g["role"] == "client"]
+    gateways = [g["id"] for g in s["ground_sites"] if g["role"] == "gateway"]
     rng = np.random.default_rng(seed)
 
     raw_availability = {cid: [] for cid in clients}
@@ -153,10 +183,12 @@ def monte_carlo_risk(s: dict, n_trials: int = 300, step_sample: int = 1,
     raw_outage_count = {cid: [] for cid in clients}
 
     for _trial in range(n_trials):
-        if mode == 'poisson':
-            failures = generate_failures_poisson(sat_ids, e['horizon_s'], rate_per_day, mean_repair_h, rng)
-        elif mode == 'fixed_k':
-            failures = generate_failures_fixed_k(sat_ids, e['horizon_s'], k_fixed, rng)
+        if mode == "poisson":
+            failures = generate_failures_poisson(
+                sat_ids, e["horizon_s"], rate_per_day, mean_repair_h, rng
+            )
+        elif mode == "fixed_k":
+            failures = generate_failures_fixed_k(sat_ids, e["horizon_s"], k_fixed, rng)
         else:
             raise ValueError('mode must be "poisson" or "fixed_k"')
 
@@ -166,7 +198,13 @@ def monte_carlo_risk(s: dict, n_trials: int = 300, step_sample: int = 1,
 
         failed_by_t = []
         for t in times:
-            failed_by_t.append({sid for sid, ivs in intervals_by_sat.items() if any(st <= t < en for st, en in ivs)})
+            failed_by_t.append(
+                {
+                    sid
+                    for sid, ivs in intervals_by_sat.items()
+                    if any(st <= t < en for st, en in ivs)
+                }
+            )
 
         for cid in clients:
             up = 0
@@ -174,7 +212,10 @@ def monte_carlo_risk(s: dict, n_trials: int = 300, step_sample: int = 1,
             cur_start = None
             for idx, t in enumerate(times):
                 failed_now = failed_by_t[idx]
-                connected = any(_connected(cache['by_t'][t], cid, gid, failed_now) for gid in gateways)
+                connected = any(
+                    _connected(cache["by_t"][t], cid, gid, failed_now)
+                    for gid in gateways
+                )
                 if connected:
                     up += 1
                     if cur_start is not None:
@@ -184,46 +225,60 @@ def monte_carlo_risk(s: dict, n_trials: int = 300, step_sample: int = 1,
                     if cur_start is None:
                         cur_start = t
             if cur_start is not None:
-                outages.append(e['horizon_s'] - cur_start)
+                outages.append(e["horizon_s"] - cur_start)
 
             raw_availability[cid].append(up / len(times))
             raw_max_outage[cid].append(max(outages) if outages else 0)
             raw_outage_count[cid].append(len(outages))
 
-    report = {'meta': s['meta'], 'mode': mode, 'n_trials': n_trials,
-              'target_availability': e['target_availability'], 'clients': {}}
+    report = {
+        "meta": s["meta"],
+        "mode": mode,
+        "n_trials": n_trials,
+        "target_availability": e["target_availability"],
+        "clients": {},
+    }
     for cid in clients:
         arr = np.array(raw_availability[cid])
-        report['clients'][cid] = {
-            'mean_availability': round(float(arr.mean()), 4),
-            'std_availability': round(float(arr.std()), 4),
-            'p05': round(float(np.percentile(arr, 5)), 4),
-            'p50_median': round(float(np.percentile(arr, 50)), 4),
-            'p95': round(float(np.percentile(arr, 95)), 4),
-            'worst_case': round(float(arr.min()), 4),
-            'prob_meets_target': round(float((arr >= e['target_availability']).mean()), 4),
-            'mean_max_outage_s': round(float(np.mean(raw_max_outage[cid])), 1),
-            'mean_outage_count': round(float(np.mean(raw_outage_count[cid])), 2),
+        report["clients"][cid] = {
+            "mean_availability": round(float(arr.mean()), 4),
+            "std_availability": round(float(arr.std()), 4),
+            "p05": round(float(np.percentile(arr, 5)), 4),
+            "p50_median": round(float(np.percentile(arr, 50)), 4),
+            "p95": round(float(np.percentile(arr, 95)), 4),
+            "worst_case": round(float(arr.min()), 4),
+            "prob_meets_target": round(
+                float((arr >= e["target_availability"]).mean()), 4
+            ),
+            "mean_max_outage_s": round(float(np.mean(raw_max_outage[cid])), 1),
+            "mean_outage_count": round(float(np.mean(raw_outage_count[cid])), 2),
         }
-    report['_raw_availability'] = raw_availability  # для построения гистограммы
+    report["_raw_availability"] = raw_availability  # для построения гистограммы
     return report
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('scenario')
-    ap.add_argument('--trials', type=int, default=300)
-    ap.add_argument('--mode', choices=['poisson', 'fixed_k'], default='poisson')
-    ap.add_argument('--step-sample', type=int, default=1)
-    ap.add_argument('--rate-per-day', type=float, default=0.03)
-    ap.add_argument('--mean-repair-h', type=float, default=6.0)
-    ap.add_argument('--k-fixed', type=int, default=10)
-    ap.add_argument('--seed', type=int, default=42)
+    ap.add_argument("scenario")
+    ap.add_argument("--trials", type=int, default=300)
+    ap.add_argument("--mode", choices=["poisson", "fixed_k"], default="poisson")
+    ap.add_argument("--step-sample", type=int, default=1)
+    ap.add_argument("--rate-per-day", type=float, default=0.03)
+    ap.add_argument("--mean-repair-h", type=float, default=6.0)
+    ap.add_argument("--k-fixed", type=int, default=10)
+    ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
     scenario = load(args.scenario)
-    rep = monte_carlo_risk(scenario, n_trials=args.trials, step_sample=args.step_sample,
-                            mode=args.mode, rate_per_day=args.rate_per_day,
-                            mean_repair_h=args.mean_repair_h, k_fixed=args.k_fixed, seed=args.seed)
-    rep.pop('_raw_availability', None)
+    rep = monte_carlo_risk(
+        scenario,
+        n_trials=args.trials,
+        step_sample=args.step_sample,
+        mode=args.mode,
+        rate_per_day=args.rate_per_day,
+        mean_repair_h=args.mean_repair_h,
+        k_fixed=args.k_fixed,
+        seed=args.seed,
+    )
+    rep.pop("_raw_availability", None)
     print(json.dumps(rep, ensure_ascii=False, indent=2))

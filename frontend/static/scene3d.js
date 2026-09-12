@@ -8,13 +8,38 @@
 const EARTH_R = 6371.0;
 const EARTH_OMEGA = 2 * Math.PI / 86164.09054; // рад/с, как в geometry.py
 
+// Равнопромежуточная (equirectangular) текстура Земли: центр изображения (u=0.5)
+// должен соответствовать Гринвичскому меридиану, левый/правый край (u=0/u=1) —
+// линии перемены дат, верх (v=0) — Северному полюсу. Такой конвенции следуют
+// большинство свободных текстур (NASA Visible Earth "Blue Marble" — общественное
+// достояние; примеры из репозитория three.js examples/textures/planets;
+// Solar System Scope 2K/4K Earth Day Map — CC BY 4.0). Положите файл в
+// /static/textures/ и поменяйте путь при необходимости.
+const EARTH_TEXTURE_URL = "/static/textures/earth_daymap.jpg";
+
 function dataToThree(x, y, z) { return [x, z, y]; }
+
+function applyLatLonUV(geometry, radius) {
+  const posAttr = geometry.attributes.position;
+  const uv = new Float32Array(posAttr.count * 2);
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i), y = posAttr.getY(i), z = posAttr.getZ(i);
+    const clampedY = Math.max(-1, Math.min(1, y / radius));
+    const lat = Math.asin(clampedY);          // из Y (в three.js Y — ось на полюс)
+    const lon = Math.atan2(z, x);             // та же формула, что и обратная к ground_position
+    uv[i * 2] = 0.5 + lon / (2 * Math.PI);
+    uv[i * 2 + 1] = 0.5 + lat / Math.PI;
+  }
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+}
 
 class Scene3D {
   constructor(container) {
     this.container = container;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    if ("outputColorSpace" in this.renderer) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    else if ("outputEncoding" in this.renderer) this.renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -36,6 +61,7 @@ class Scene3D {
 
     // мировая группа (вращается с t)
     this.world = new THREE.Group();
+    this.world.scale.x =  -1;
     this.scene.add(this.world);
     this._buildEarth();
 
@@ -95,11 +121,16 @@ class Scene3D {
 
   _buildEarth() {
     const R = EARTH_R;
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(R, 64, 48),
-      new THREE.MeshPhongMaterial({ color: 0x14293f, emissive: 0x0a1626, shininess: 6, specular: 0x1c3346 })
-    );
+    const geo = new THREE.SphereGeometry(R, 96, 64);
+    applyLatLonUV(geo, R);
+    // Плоский цвет — рабочий fallback, пока (или если) текстура не загрузилась,
+    // чтобы отсутствие файла текстуры не ломало сцену.
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x14293f, emissive: 0x0a1626, shininess: 6, specular: 0x1c3346,
+    });
+    const sphere = new THREE.Mesh(geo, material);
     this.world.add(sphere);
+    this._loadEarthTexture(material);
 
     // гратикула (сетка lat/lon каждые 30°)
     const pts = [];
@@ -126,7 +157,7 @@ class Scene3D {
     const gg = new THREE.BufferGeometry();
     gg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
     this.world.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({
-      color: 0x3d6a8f, transparent: true, opacity: 0.35,
+      color: 0x3d6a8f, transparent: true, opacity: 0.22,
     })));
 
     // подсветка северных широт (пункты северные): полусфера lat > 55°
@@ -143,6 +174,37 @@ class Scene3D {
       new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.05, side: THREE.BackSide })
     );
     this.world.add(atmo);
+  }
+
+  /* Асинхронная загрузка текстуры Земли. При ошибке (файл не найден/не
+     загружен) сцена остаётся рабочей — просто на плоском цвете материала,
+     заданном в _buildEarth(). Проверить совпадение с картой просто: Африка
+     и Европа должны оказаться над Гринвичским меридианом, а не перевёрнуто
+     по широте — если карта окажется "вверх ногами", поменяйте знак в
+     applyLatLonUV: v = 0.5 + lat / Math.PI. */
+  _loadEarthTexture(material) {
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      EARTH_TEXTURE_URL,
+      (texture) => {
+        
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        if (this.renderer.capabilities && this.renderer.capabilities.getMaxAnisotropy) {
+          texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        }
+        if ("SRGBColorSpace" in THREE) texture.colorSpace = THREE.SRGBColorSpace;
+        else if ("sRGBEncoding" in THREE) texture.encoding = THREE.sRGBEncoding;
+        material.map = texture;
+        material.color.set(0xffffff);
+        material.needsUpdate = true;
+      },
+      undefined,
+      (err) => {
+        console.warn(`Не удалось загрузить текстуру Земли (${EARTH_TEXTURE_URL}). ` +
+          "Проверьте, что файл лежит по этому пути. Сцена продолжит работать на плоском цвете.", err);
+      }
+    );
   }
 
   /* ---------- данные ---------- */
