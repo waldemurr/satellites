@@ -1,10 +1,10 @@
 {
   "design": {
-    "launch_stage": 1,
+    "launch_stage": 3,
     "planes": [
       {
         "id": "P1",
-        "phase_deg": 1.5,
+        "phase_deg": 0,
         "raan_deg": 0
       },
       {
@@ -319,7 +319,58 @@
     "step_s": 120,
     "target_availability": 0.9
   },
-  "failures": [],
+  "failures": [
+    {
+      "end_s": 86400,
+      "satellite_id": "S31",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S14",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S48",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S16",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S26",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S15",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S08",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S05",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S32",
+      "start_s": 21600
+    },
+    {
+      "end_s": 86400,
+      "satellite_id": "S34",
+      "start_s": 21600
+    }
+  ],
   "gateway_outages": [],
   "ground_sites": [
     {
@@ -352,8 +403,8 @@
     }
   ],
   "meta": {
-    "id": "02_first_launch",
-    "title": "Первая очередь запуска"
+    "id": "03_satellite_outages",
+    "title": "Недоступность десяти аппаратов"
   },
   "schema_version": "cosmo-A-1.0"
 }

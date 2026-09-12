@@ -8,13 +8,6 @@
 const EARTH_R = 6371.0;
 const EARTH_OMEGA = 2 * Math.PI / 86164.09054; // рад/с, как в geometry.py
 
-// Равнопромежуточная (equirectangular) текстура Земли: центр изображения (u=0.5)
-// должен соответствовать Гринвичскому меридиану, левый/правый край (u=0/u=1) —
-// линии перемены дат, верх (v=0) — Северному полюсу. Такой конвенции следуют
-// большинство свободных текстур (NASA Visible Earth "Blue Marble" — общественное
-// достояние; примеры из репозитория three.js examples/textures/planets;
-// Solar System Scope 2K/4K Earth Day Map — CC BY 4.0). Положите файл в
-// /static/textures/ и поменяйте путь при необходимости.
 const EARTH_TEXTURE_URL = "/static/textures/earth_daymap.jpg";
 
 function dataToThree(x, y, z) { return [x, z, y]; }
@@ -123,8 +116,6 @@ class Scene3D {
     const R = EARTH_R;
     const geo = new THREE.SphereGeometry(R, 96, 64);
     applyLatLonUV(geo, R);
-    // Плоский цвет — рабочий fallback, пока (или если) текстура не загрузилась,
-    // чтобы отсутствие файла текстуры не ломало сцену.
     const material = new THREE.MeshPhongMaterial({
       color: 0x14293f, emissive: 0x0a1626, shininess: 6, specular: 0x1c3346,
     });
@@ -132,7 +123,6 @@ class Scene3D {
     this.world.add(sphere);
     this._loadEarthTexture(material);
 
-    // гратикула (сетка lat/lon каждые 30°)
     const pts = [];
     const seg = (a, b) => { pts.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
     const onSphere = (latDeg, lonDeg) => {
@@ -176,12 +166,6 @@ class Scene3D {
     this.world.add(atmo);
   }
 
-  /* Асинхронная загрузка текстуры Земли. При ошибке (файл не найден/не
-     загружен) сцена остаётся рабочей — просто на плоском цвете материала,
-     заданном в _buildEarth(). Проверить совпадение с картой просто: Африка
-     и Европа должны оказаться над Гринвичским меридианом, а не перевёрнуто
-     по широте — если карта окажется "вверх ногами", поменяйте знак в
-     applyLatLonUV: v = 0.5 + lat / Math.PI. */
   _loadEarthTexture(material) {
     const loader = new THREE.TextureLoader();
     loader.load(
@@ -463,7 +447,6 @@ class Scene3D {
 
   _loop() {
     requestAnimationFrame(() => this._loop());
-    // вращение планеты (вместе с группировкой в Earth-fixed) против звёзд
     this.world.rotation.y = -(this.earthAngle0 + EARTH_OMEGA * this.tS);
     this._pick(false);
     this.renderer.render(this.scene, this.camera);
