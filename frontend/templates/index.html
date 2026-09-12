@@ -173,6 +173,30 @@
           <label for="cfgElev">Мин. угол места, ° (min_elevation_deg)</label>
           <input type="number" id="cfgElev" min="0" max="89" step="0.5">
         </div>
+        <div class="form-row">
+          <label for="cfgOrbitType">Тип орбиты</label>
+          <select id="cfgOrbitType">
+            <option value="circular">Круговая</option>
+            <option value="elliptical">Эллиптическая</option>
+          </select>
+        </div>
+        <div id="orbitElliptical" hidden>
+          <div class="form-row">
+            <label for="cfgPerigee">Перигей, км (не ниже 500)</label>
+            <input type="number" id="cfgPerigee" min="500" step="10">
+          </div>
+          <div class="form-row">
+            <label for="cfgEcc">Эксцентриситет e (0…0.6)</label>
+            <input type="number" id="cfgEcc" min="0" max="0.6" step="0.01">
+          </div>
+          <div class="form-row">
+            <label for="cfgArgPerigee">Аргумент перигея ω, °</label>
+            <input type="number" id="cfgArgPerigee" min="0" max="359.9" step="1">
+          </div>
+          <p class="muted small" id="cfgOrbitDerived"></p>
+          <p class="muted small">Перигей — ближайшая к Земле точка орбиты. Для эллиптических
+          орбит altitude_km хранит высоту большой полуоси (пересчитывается из перигея и e).</p>
+        </div>
         <p class="muted small" id="cfgMetaInfo"></p>
       </div>
 

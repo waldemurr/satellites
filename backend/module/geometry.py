@@ -1,4 +1,30 @@
-"""Расчёт координат спутников и доступных контактов. Python 3.10+, NumPy."""
+"""Расчёт координат спутников и доступных контактов. Python 3.10+, NumPy.
+
+Орбиты: круговые и эллиптические. environment.altitude_km — высота большой
+полуоси (для круговых орбит — просто высота орбиты). Для эллиптических
+орбит (orbit_type == 'elliptical') добавляются:
+  eccentricity    — эксцентриситет e (0..0.6), общий для группировки;
+  arg_perigee_deg — аргумент перигея ω (0..360), ориентация перигея
+                    в плоскости орбиты.
+Каждый спутник может переопределить оба параметра своими полями
+eccentricity / arg_perigee_deg. Перигей не может быть ниже 500 км
+(высота перигея h_p = (R + altitude_km)·(1 − e) − R ≥ 500), высота
+большой полуоси для эллиптических орбит — до 5000 км.
+
+Движение — по законам Кеплера с учётом секулярных возмущений от
+приплюснутости Земли (первый порядок по J₂ = 1.08263·10⁻³):
+  Ω̇ = −(3/2)·J₂·n·(R/p)²·cos i            — регрессия линии узлов,
+  ω̇ =  (3/4)·J₂·n·(R/p)²·(5 cos²i − 1)     — прецессия линии апсид,
+  n̄ = n·(1 + (3/4)·J₂·(R/p)²·√(1−e²)·(3 cos²i − 1)) — среднее движение,
+где p = a·(1−e²). На высоте 550 км и i = 87° это ~0,4°/сут регрессии
+узлов и ~3–4°/сут дрейфа перигея — заметно на горизонте моделирования.
+Уравнение Кеплера решается методом Ньютона, истинная аномалия и радиус
+дают аргумент широты u = arg_perigee + ν. При e = 0 и J₂ = 0 схема
+точно вырождается в равномерное движение по круговой орбите.
+Короткопериодические члены J₂ и резонансные эффекты не учитываются —
+для расчётного горизонта до 2 сут это допущение не превышает
+первого порядка малости.
+"""
 
 from __future__ import annotations
 import json, math, sys
@@ -8,6 +34,7 @@ import numpy as np
 R = 6371.0
 MU = 398600.435507
 OMEGA = 2 * math.pi / 86164.09054
+J2 = 1.08262668e-3  # коэффициент приплюснутости Земли (EGM96)
 
 
 def load(path: str | Path) -> dict:
@@ -38,7 +65,7 @@ def validate(s: dict) -> None:
     ):
         if not finite(e[key]):
             raise ValueError("Non-finite environment value: " + key)
-    if not (200 <= e["altitude_km"] <= 1200 and 0 < e["inclination_deg"] <= 180):
+    if not (0 < e["inclination_deg"] <= 180):
         raise ValueError("Invalid orbit")
     if not isinstance(e["step_s"], int) or not isinstance(e["horizon_s"], int):
         raise ValueError("Time grid must use integer seconds")
@@ -53,18 +80,24 @@ def validate(s: dict) -> None:
         and (0 <= e["target_availability"] <= 1)
     ):
         raise ValueError("Invalid link/target values")
-    if 'orbit_type' in e:
-        if e['orbit_type'] not in ('circular', 'elliptical'):
-            raise ValueError('orbit_type must be circular or elliptical')
-        if e.get('orbit_type') == 'elliptical':
-            if not finite(e.get('eccentricity')) or not (0 <= e['eccentricity'] < 1):
-                raise ValueError('Invalid eccentricity')
-            if not finite(e.get('arg_perigee_deg')) or not (0 <= e['arg_perigee_deg'] < 360):
-                raise ValueError('Invalid arg_perigee_deg')
-            a = R + e['altitude_km']
-            r_p = a * (1 - e['eccentricity'])
-            if r_p <= R + 500:
-                raise ValueError('Perigee below 500 km — unstable orbit')
+    elliptical = e.get("orbit_type", "circular") == "elliptical"
+    if "orbit_type" in e and e["orbit_type"] not in ("circular", "elliptical"):
+        raise ValueError("orbit_type must be circular or elliptical")
+    alt_max = 5000.0 if elliptical else 1200.0
+    if not (200 <= e["altitude_km"] <= alt_max):
+        raise ValueError("Invalid orbit altitude")
+    env_e = 0.0
+    if elliptical:
+        if not finite(e.get("eccentricity")) or not (0 <= e["eccentricity"] <= 0.6):
+            raise ValueError("Invalid eccentricity")
+        if not finite(e.get("arg_perigee_deg")) or not (
+            0 <= e["arg_perigee_deg"] < 360
+        ):
+            raise ValueError("Invalid arg_perigee_deg")
+        env_e = e["eccentricity"]
+        r_p = (R + e['altitude_km']) * (1 - env_e)
+        if r_p < R + 500:
+            raise ValueError(f"Perigee below 500 km: {round(r_p - R)}")
     planes = {p["id"]: p for p in d["planes"]}
     if len(planes) != len(d["planes"]) or not planes:
         raise ValueError("Duplicate/empty planes")
@@ -85,6 +118,15 @@ def validate(s: dict) -> None:
             or (not finite(sat["slot_deg"]))
         ):
             raise ValueError("Invalid satellite")
+        sat_e = sat.get("eccentricity", env_e)
+        if not finite(sat_e) or not (0 <= sat_e <= 0.6):
+            raise ValueError("Invalid satellite eccentricity")
+        r_p = (R + e["altitude_km"]) * (1 - sat_e)
+        if r_p < R + 500:
+            raise ValueError(f"Perigee below 500 km: {round(r_p - R)}")
+        sat_w = sat.get("arg_perigee_deg", e.get("arg_perigee_deg", 0.0))
+        if not finite(sat_w) or not (0 <= sat_w < 360):
+            raise ValueError("Invalid satellite arg_perigee_deg")
     ground = s["ground_sites"]
     gids = [g["id"] for g in ground]
     if len(gids) != len(set(gids)) or set(gids) & set(ids):
@@ -119,23 +161,59 @@ def validate(s: dict) -> None:
 
 
 def positions(s: dict, t_s: float) -> tuple[list[str], np.ndarray, np.ndarray]:
-    """Return satellite IDs, model inertial positions [km], Earth-fixed positions [km]."""
+    """Return satellite IDs, model inertial positions [km], Earth-fixed positions [km].
+
+    Круговые орбиты (e=0): u(t) = slot + phase + n·t. Эллиптические:
+    решение уравнения Кеплера M = E − e·sin E методом Ньютона,
+    u = arg_perigee + ν(E), r = a·(1 − e·cos E).
+    """
     e, d = (s["environment"], s["design"])
     pmap = {p["id"]: p for p in d["planes"]}
-    r = R + e["altitude_km"]
-    n = math.sqrt(MU / r**3)
     inc = math.radians(e["inclination_deg"])
-    u = np.array(
+    env_e = (
+        e.get("eccentricity", 0.0)
+        if e.get("orbit_type") == "elliptical"
+        else 0.0
+    )
+    ecc = np.array(
+        [float(sat.get("eccentricity", env_e) or 0.0) for sat in d["satellites"]]
+    )
+    argp = np.radians(
         [
-            math.radians(x["slot_deg"] + pmap[x["plane_id"]]["phase_deg"]) + n * t_s
+            float(sat.get("arg_perigee_deg", e.get("arg_perigee_deg", 0.0)) or 0.0)
+            for sat in d["satellites"]
+        ]
+    )
+    a = R + e["altitude_km"]
+    n = math.sqrt(MU / a**3)
+    p = a * (1.0 - ecc**2)
+    ratio2 = (R / p) ** 2  # (R/p)² — для каждого аппарата
+    cosi = math.cos(inc)
+    # Секулярные скорости от J2 (на аппарат, т.к. e может отличаться)
+    nbar = n * (1.0 + 0.75 * J2 * ratio2 * np.sqrt(np.maximum(1.0 - ecc**2, 1e-12)) * (3.0 * cosi**2 - 1.0))
+    odot = -1.5 * J2 * n * ratio2 * cosi  # регрессия линии узлов
+    wdot = 0.75 * J2 * n * ratio2 * (5.0 * cosi**2 - 1.0)  # прецессия апсид
+    M0 = np.array(
+        [
+            math.radians(x["slot_deg"] + pmap[x["plane_id"]]["phase_deg"])
             for x in d["satellites"]
         ]
     )
+    M = M0 + nbar * t_s
+    E = M.copy()
+    for _ in range(15):
+        E = E - (E - ecc * np.sin(E) - M) / np.maximum(1 - ecc * np.cos(E), 1e-9)
+    nu = 2 * np.arctan2(
+        np.sqrt(1 + ecc) * np.sin(E / 2),
+        np.sqrt(np.maximum(1 - ecc, 1e-12)) * np.cos(E / 2),
+    )
+    r = a * (1 - ecc * np.cos(E))
+    u = argp + wdot * t_s + nu
     om = np.array(
         [math.radians(pmap[x["plane_id"]]["raan_deg"]) for x in d["satellites"]]
-    )
+    ) + odot * t_s
     cu, su, co, so = (np.cos(u), np.sin(u), np.cos(om), np.sin(om))
-    xyz = r * np.stack(
+    xyz = np.stack(
         (
             co * cu - so * su * math.cos(inc),
             so * cu + co * su * math.cos(inc),
@@ -143,6 +221,7 @@ def positions(s: dict, t_s: float) -> tuple[list[str], np.ndarray, np.ndarray]:
         ),
         axis=1,
     )
+    xyz = r[:, None] * xyz
     th = math.radians(e["earth_angle0_deg"]) + OMEGA * t_s
     c, ss = (math.cos(th), math.sin(th))
     fixed = xyz @ np.array([[c, -ss, 0], [ss, c, 0], [0, 0, 1]])

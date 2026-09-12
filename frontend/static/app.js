@@ -507,6 +507,7 @@ function renderEditor() {
   $("cfgStage").value = String(ed.design.launch_stage);
   $("cfgIsl").value = ed.environment.isl_range_km;
   $("cfgElev").value = ed.environment.min_elevation_deg;
+  renderOrbitEditor();
   $("cfgMetaInfo").textContent =
     `${ed.meta && ed.meta.title ? ed.meta.title : ""} · ${ed.design.satellites.length} КА · ` +
     `${ed.design.planes.length} плоскости · горизонт ${ed.environment.horizon_s} с, шаг ${ed.environment.step_s} с`;
@@ -531,6 +532,75 @@ function updateDirtyFlag() { $("configDirty").hidden = !state.dirty; }
 $("cfgStage").addEventListener("change", e => { state.edited.design.launch_stage = Number(e.target.value); markDirty(); });
 $("cfgIsl").addEventListener("input", e => { state.edited.environment.isl_range_km = Number(e.target.value); markDirty(); });
 $("cfgElev").addEventListener("input", e => { state.edited.environment.min_elevation_deg = Number(e.target.value); markDirty(); });
+
+/* ---------- редактор орбиты ---------- */
+const R_EARTH = 6371.0;
+
+function orbitParams(env) {
+  // e, перигей/апогей (км) из хранимых altitude_km (большая полуось) + eccentricity
+  const ecc = env.orbit_type === "elliptical" ? Number(env.eccentricity || 0) : 0;
+  const a = R_EARTH + Number(env.altitude_km);
+  return {
+    ecc,
+    perigee: a * (1 - ecc) - R_EARTH,
+    apogee: a * (1 + ecc) - R_EARTH,
+    argp: Number(env.arg_perigee_deg || 0),
+  };
+}
+
+function renderOrbitEditor() {
+  const env = state.edited.environment;
+  const ell = env.orbit_type === "elliptical";
+  $("cfgOrbitType").value = ell ? "elliptical" : "circular";
+  $("orbitElliptical").hidden = !ell;
+  if (ell) {
+    const p = orbitParams(env);
+    $("cfgPerigee").value = Math.round(p.perigee);
+    $("cfgEcc").value = p.ecc;
+    $("cfgArgPerigee").value = p.argp;
+    $("cfgOrbitDerived").textContent =
+      `Большая полуось: ${Math.round((p.perigee + p.apogee) / 2)} км · апогей: ${Math.round(p.apogee)} км`;
+  }
+}
+
+function applyOrbitFromUI() {
+  const env = state.edited.environment;
+  if ($("cfgOrbitType").value !== "elliptical") {
+    env.orbit_type = "circular";
+    delete env.eccentricity;
+    delete env.arg_perigee_deg;
+    $("orbitElliptical").hidden = true;
+    markDirty();
+    return;
+  }
+  const perigee = Number($("cfgPerigee").value);
+  const ecc = Number($("cfgEcc").value);
+  const argp = Number($("cfgArgPerigee").value);
+  if (!Number.isFinite(perigee) || perigee < 500) {
+    toast("Перигей слишком низкий", "Ограничение: перигей не ниже 500 км.", "error");
+    renderOrbitEditor();
+    return;
+  }
+  if (!Number.isFinite(ecc) || ecc < 0 || ecc > 0.6) {
+    toast("Некорректный эксцентриситет", "Допустимо 0…0.6.", "error");
+    renderOrbitEditor();
+    return;
+  }
+  const r_p = R_EARTH + perigee;
+  const a = r_p / (1 - ecc); // перигей и e задают большую полуось
+  env.orbit_type = "elliptical";
+  env.eccentricity = ecc;
+  env.arg_perigee_deg = Number.isFinite(argp) ? argp : 0;
+  env.altitude_km = Math.round((a - R_EARTH) * 100) / 100;
+  $("orbitElliptical").hidden = false;
+  renderOrbitEditor();
+  markDirty();
+}
+
+$("cfgOrbitType").addEventListener("change", applyOrbitFromUI);
+$("cfgPerigee").addEventListener("change", applyOrbitFromUI);
+$("cfgEcc").addEventListener("change", applyOrbitFromUI);
+$("cfgArgPerigee").addEventListener("change", applyOrbitFromUI);
 
 $("planesTable").addEventListener("input", e => {
   const i = e.target.dataset.plane, f = e.target.dataset.field;
