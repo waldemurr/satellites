@@ -1,94 +1,335 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Проектирование спутниковой группировки</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>АРКТИК · Проектирование спутниковой группировки</title>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container-fluid">
-        <header class="bg-primary text-white py-4 mb-4">
-            <div class="container">
-                <h1 class="display-6">Проектирование устойчивой спутниковой группировки</h1>
-                <p class="lead">Сервис для анализа доступности связи в северных районах</p>
-            </div>
-        </header>
 
-        <main class="container">
-            <div class="row">
-                <div class="col-lg-4">
-                    <div class="card mb-4">
-                        <div class="card-header bg-secondary text-white">
-                            <h5 class="mb-0">Управление данными</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <h6 class="mb-3">Выберите сценарий:</h6>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" value="01_full_constellation.json" id="scenario1">
-                                    <label class="form-check-label" for="scenario1">Полная группировка</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" value="02_first_launch.json" id="scenario2">
-                                    <label class="form-check-label" for="scenario2">Первая очередь запуска</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" value="03_satellite_outages.json" id="scenario3">
-                                    <label class="form-check-label" for="scenario3">Недоступность десяти аппаратов</label>
-                                </div>
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" value="04_link_range.json" id="scenario4">
-                                    <label class="form-check-label" for="scenario4">Ограничение дальности связи</label>
-                                </div>
-                                <div class="form-group mb-3">
-                                    <label for="timestamp" class="form-label">Время (сек):</label>
-                                    <input type="number" class="form-control" id="timestamp" value="0" min="0">
-                                </div>
-                                <button class="btn btn-primary w-100" onclick="calculate()">Рассчитать состояние сети</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-lg-8">
-                    <div class="card mb-4">
-                        <div class="card-header bg-secondary text-white">
-                            <h5 class="mb-0">Визуализация спутниковой группировки</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="satellite-map" class="map-container">
-                                <canvas id="satelliteCanvas" width="600" height="400"></canvas>
-                                <p class="text-center mt-3 text-muted">Интерактивная карта спутниковой группировки</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-header bg-secondary text-white">
-                            <h5 class="mb-0">Результаты расчета</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="results-content">
-                                <p class="text-muted">Выберите сценарий и нажмите "Рассчитать" для просмотра результатов</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <div class="brand-text">
+      <h1>СПУТНИК·АРКТИК</h1>
+      <span>проектирование устойчивой группировки · ИНТЦ «АКИД»</span>
+    </div>
+  </div>
+  <div class="scenario-bar">
+    <label for="fileSelect">Сценарий</label>
+    <select id="fileSelect" title="Активный сценарий расчёта"></select>
+    <button id="btnUpload" class="btn" title="Загрузить JSON-сценарий (кнопка или drag&amp;drop на окно)">⬆ Загрузить</button>
+    <button id="btnDownload" class="btn" title="Скачать текущий сценарий JSON">⬇ Сценарий</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+  <div class="health" id="healthBadge" title="Состояние бэкенда">…</div>
+</header>
 
-        <footer class="bg-dark text-white py-3 mt-4">
-            <div class="container text-center">
-                <p class="mb-0">Сервис проектирования спутниковой группировки &copy; 2026</p>
+<nav class="tabs">
+  <button class="tab active" data-tab="modeling" title="3D-модель сети, маршрутизация, временная шкала">Моделирование</button>
+  <button class="tab" data-tab="config" title="Этап запуска, плоскости, отказы — с загрузкой нового варианта">Конфигурация</button>
+  <button class="tab" data-tab="experiments" title="Монте-Карло и эксперименты с отключением аппаратов">Эксперименты</button>
+  <button class="tab" data-tab="compare" title="Сравнение сохранённых вариантов и рекомендации">Сравнение</button>
+  <button class="tab" data-tab="reports" title="Доступность, выгрузки JSON/CSV, печать отчёта">Отчёты</button>
+</nav>
+
+<main>
+  <!-- ============ МОДЕЛИРОВАНИЕ ============ -->
+  <section id="tab-modeling" class="tab-page active">
+    <div class="workbench">
+
+      <!-- Левая панель: маршрут + тумблеры группировки -->
+      <aside class="panel side-panel side-left">
+        <div class="side-tabs">
+          <button class="side-tab active" data-side="route">Маршрут</button>
+          <button class="side-tab" data-side="sats">Спутники</button>
+        </div>
+
+        <div id="side-route" class="side-page active">
+          <h2>Маршрутизация</h2>
+          <div class="form-row">
+            <label for="routeClient">Клиент</label>
+            <select id="routeClient"></select>
+          </div>
+          <div class="form-row">
+            <label for="routeGateway">Шлюз</label>
+            <select id="routeGateway"></select>
+          </div>
+          <div class="form-row">
+            <label for="routeStrategy">Стратегия поиска</label>
+            <select id="routeStrategy">
+              <option value="hops">Минимум переходов (hops)</option>
+              <option value="latency">Минимальная задержка (latency)</option>
+              <option value="capacity">Максимальная ёмкость (capacity)</option>
+            </select>
+          </div>
+          <label class="check" title="Автоматически перестраивать маршрут при смене времени">
+            <input type="checkbox" id="routeAuto"> авто-маршрут при смене t
+          </label>
+          <button id="btnRoute" class="btn btn-accent btn-block">Построить маршрут в момент t</button>
+          <div id="routeResult" class="route-result">
+            <div class="empty">Маршрут ещё не построен. Выберите клиента и шлюз, нажмите кнопку.</div>
+          </div>
+
+          <h2 style="margin-top:16px">Быстрые выгрузки</h2>
+          <div class="btn-col">
+            <button id="btnExportSnapshot" class="btn btn-sm" title="Скачать текущий снапшот сети (t, спутники, связи)">Снапшот сети (JSON)</button>
+            <button id="btnExportRoute" class="btn btn-sm" title="Скачать последний построенный маршрут">Маршрут (JSON)</button>
+          </div>
+        </div>
+
+        <div id="side-sats" class="side-page">
+          <h2>Тумблеры группировки</h2>
+          <p class="muted small">Выключенные аппараты мгновенно исключаются из расчёта (параметр exclude) — без перезагрузки файла.</p>
+          <div class="form-inline">
+            <button id="btnEnableAll" class="btn btn-sm">Включить все</button>
+            <button id="btnExcludeFailed" class="btn btn-sm" title="Выключить спутники, у которых сейчас период отказа">Выключить отказавшие</button>
+          </div>
+          <div id="excludedSummary" class="muted small"></div>
+          <div id="toggleTree"></div>
+        </div>
+      </aside>
+
+      <!-- Центр: 3D-вид + временная шкала -->
+      <div class="viewport-col">
+        <div class="viewport" id="viewport">
+          <div class="globe-legend">
+            <div><span class="lg lg-sat"></span>активен</div>
+            <div><span class="lg lg-sat-off"></span>не запущен</div>
+            <div><span class="lg lg-sat-fail"></span>отказ / выключен</div>
+            <div><span class="lg lg-isl"></span>ISL-связь</div>
+            <div><span class="lg lg-ground"></span>пункт ↔ КА</div>
+            <div><span class="lg lg-route"></span>маршрут</div>
+            <div><span class="lg lg-client"></span>клиент</div>
+            <div><span class="lg lg-gateway"></span>шлюз</div>
+          </div>
+          <div class="viewport-toolbar">
+            <button id="btnResetView" class="btn btn-sm" title="Сбросить ракурс камеры">⟲ Вид</button>
+          </div>
+          <div class="globe-hint">drag — вращение · колесо — масштаб · клик — выбор объекта</div>
+        </div>
+
+        <div class="panel timeline-panel">
+          <div class="timeline-controls">
+            <button id="btnStepBack" class="btn btn-sm" title="Шаг назад (−120 с)">−</button>
+            <button id="btnPlay" class="btn btn-sm btn-accent" title="Воспроизведение / пауза">▶</button>
+            <button id="btnStepFwd" class="btn btn-sm" title="Шаг вперёд (+120 с)">+</button>
+            <span class="time-display" id="timeDisplay" title="Текущий момент расчёта">00:00:00</span>
+            <input type="range" id="timeSlider" min="0" max="86400" step="120" value="0" title="Временная шкала расчёта">
+            <span class="time-total" id="timeTotal">24:00:00</span>
+            <label class="check" title="Скорость анимации времени">
+              <select id="playSpeed" class="mini-select">
+                <option value="300">0.5×</option>
+                <option value="150" selected>1×</option>
+                <option value="75">2×</option>
+                <option value="38">4×</option>
+              </select>
+            </label>
+          </div>
+          <div class="avail-header">
+            <h2>Диаграмма доступности</h2>
+            <div class="form-inline">
+              <label for="availClient">пункт</label>
+              <select id="availClient"></select>
+              <span id="availSummary" class="muted"></span>
             </div>
-        </footer>
+          </div>
+          <canvas id="availCanvas" height="70"></canvas>
+          <div id="outageList" class="outage-list"></div>
+        </div>
+      </div>
+
+      <!-- Правая панель: инфо -->
+      <aside class="panel side-panel side-right">
+        <h2>Объект под курсором</h2>
+        <div id="satInfo" class="sat-info"><div class="empty">Наведите курсор на спутник или наземный пункт на 3D-модели…</div></div>
+        <h2 style="margin-top:16px">Состояние сети</h2>
+        <div id="netStats" class="net-stats"><div class="empty">Нет данных — выберите сценарий.</div></div>
+        <h2 style="margin-top:16px">Выключенные аппараты</h2>
+        <div id="excludedList" class="net-stats"><div class="empty">Ничего не выключено.</div></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ КОНФИГУРАЦИЯ ============ -->
+  <section id="tab-config" class="tab-page">
+    <div class="config-grid">
+      <div class="panel">
+        <h2>Общие параметры</h2>
+        <div class="form-row">
+          <label for="cfgStage">Очередь запуска (launch_stage)</label>
+          <select id="cfgStage">
+            <option value="1">1 — первая очередь (16 КА)</option>
+            <option value="2">2 — две очереди (32 КА)</option>
+            <option value="3">3 — полная группировка (48 КА)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="cfgIsl">Дальность ISL, км (isl_range_km)</label>
+          <input type="number" id="cfgIsl" min="1" max="10000" step="100">
+        </div>
+        <div class="form-row">
+          <label for="cfgElev">Мин. угол места, ° (min_elevation_deg)</label>
+          <input type="number" id="cfgElev" min="0" max="89" step="0.5">
+        </div>
+        <p class="muted small" id="cfgMetaInfo"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Орбитальные плоскости</h2>
+        <table class="tbl" id="planesTable">
+          <thead><tr><th>Плоскость</th><th>RAAN, °</th><th>Фаза, °</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Недоступность спутников</h2>
+        <table class="tbl" id="failuresTable">
+          <thead><tr><th>Спутник</th><th>Начало, с</th><th>Конец, с</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="form-inline">
+          <select id="failSat"></select>
+          <input type="number" id="failStart" placeholder="начало, с" min="0">
+          <input type="number" id="failEnd" placeholder="конец, с" min="0">
+          <button id="btnAddFailure" class="btn btn-sm">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Недоступность шлюзов</h2>
+        <table class="tbl" id="gwOutagesTable">
+          <thead><tr><th>Шлюз</th><th>Начало, с</th><th>Конец, с</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="form-inline">
+          <select id="gwOutageGw"></select>
+          <input type="number" id="gwOutageStart" placeholder="начало, с" min="0">
+          <input type="number" id="gwOutageEnd" placeholder="конец, с" min="0">
+          <button id="btnAddGwOutage" class="btn btn-sm">+ Добавить</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <div class="config-actions">
+      <button id="btnApplyVariant" class="btn btn-accent" title="Проверить валидацией и сохранить в uploads/ как новый файл">Применить и загрузить как новый вариант</button>
+      <button id="btnResetConfig" class="btn">Сброс изменений</button>
+      <span id="configDirty" class="dirty-flag" hidden>● есть несохранённые изменения</span>
+    </div>
+  </section>
+
+  <!-- ============ ЭКСПЕРИМЕНТЫ ============ -->
+  <section id="tab-experiments" class="tab-page">
+    <div class="analytics-grid">
+      <div class="panel">
+        <h2>Монте-Карло: риски случайных отказов</h2>
+        <div class="form-inline">
+          <label for="mcTrials">испытаний</label>
+          <input type="number" id="mcTrials" value="100" min="1" max="1000" style="width:90px">
+          <select id="mcMode" title="Режим генерации отказов">
+            <option value="poisson">Пуассон (поток отказов)</option>
+            <option value="fixed_k">Фиксированное число k</option>
+          </select>
+          <label for="mcK" title="Число одновременно отказавших аппаратов (режим fixed_k)">k</label>
+          <input type="number" id="mcK" value="10" min="0" max="48" style="width:70px">
+          <button id="btnMonteCarlo" class="btn btn-accent">Запустить</button>
+        </div>
+        <div id="mcResults"><div class="empty">Задайте параметры и запустите эксперимент — здесь появится оценка риска по каждому клиенту.</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Эксперимент: отключение аппаратов</h2>
+        <p class="muted small">Выберите аппараты (или возьмите топ-N по критичности) — сервис пересчитает доступность без них и покажет деградацию по клиентам.</p>
+        <div class="form-inline">
+          <label for="expTopN">топ-N</label>
+          <input type="number" id="expTopN" value="5" min="1" max="15" style="width:60px">
+          <button id="btnExpTop" class="btn btn-sm" title="Подставить N самых критичных аппаратов (по /api/criticality)">Подставить критичные</button>
+        </div>
+        <div class="form-row">
+          <label for="expSats">Отключаемые аппараты (через запятую)</label>
+          <input type="text" id="expSats" placeholder="S29, S11, S43">
+        </div>
+        <div class="form-inline">
+          <label for="expClient">клиент</label>
+          <select id="expClient"></select>
+          <label for="expStrategy">стратегия</label>
+          <select id="expStrategy">
+            <option value="hops">hops</option>
+            <option value="latency">latency</option>
+            <option value="capacity">capacity</option>
+          </select>
+          <button id="btnExperiment" class="btn btn-accent">Сравнить до/после</button>
+        </div>
+        <div id="expResults"><div class="empty">Результат эксперимента появится здесь: доступность и перерывы до и после отключения.</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Критичность аппаратов</h2>
+        <p class="muted small">Сколько раз отказ аппарата разрывал связь «клиент ↔ шлюз» по выборке шагов (п. «Анализ устойчивости» критериев).</p>
+        <button id="btnCriticality" class="btn btn-accent">Найти уязвимые аппараты</button>
+        <div id="critResults"><div class="empty">Запустите анализ — здесь появится рейтинг уязвимых аппаратов.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ СРАВНЕНИЕ ============ -->
+  <section id="tab-compare" class="tab-page">
+    <div class="panel">
+      <h2>Сохранённые варианты</h2>
+      <div class="variants-toolbar">
+        <input type="text" id="variantName" placeholder="Имя нового варианта (например, stage1+raan30)">
+        <button id="btnSaveVariant" class="btn btn-accent" title="Сохранить текущую редактируемую конфигурацию с расчётом показателей">Сохранить текущую конфигурацию</button>
+      </div>
+      <div id="variantsList" class="variants-list muted">Нет сохранённых вариантов.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Сопоставление двух вариантов</h2>
+      <div class="form-inline">
+        <select id="cmpA"></select>
+        <span class="muted">против</span>
+        <select id="cmpB"></select>
+        <button id="btnCompare" class="btn btn-accent">Сравнить</button>
+      </div>
+      <div id="cmpResults"><div class="empty">Выберите два сохранённых варианта и нажмите «Сравнить».</div></div>
+    </div>
+  </section>
+
+  <!-- ============ ОТЧЁТЫ ============ -->
+  <section id="tab-reports" class="tab-page">
+    <div class="analytics-grid">
+      <div class="panel">
+        <h2>Доступность связи (полный расчёт)</h2>
+        <p class="muted small">Перебор всех шагов горизонта с поиском потока (~30–60 с). Целевая доступность: <b id="targetAvail">0.9</b>.</p>
+        <button id="btnAvailability" class="btn btn-accent">Рассчитать доступность</button>
+        <div id="availabilityResults"><div class="empty">Расчёт ещё не выполнялся — нажмите кнопку.</div></div>
+      </div>
+      <div class="panel">
+        <h2>Выгрузки</h2>
+        <p class="muted small">Все выгрузки формируются в браузере (JSON/CSV) и содержат параметры расчёта вместе с результатами.</p>
+        <div class="btn-col">
+          <button id="btnReportJson" class="btn" title="Мета + environment + конфигурация + availability + таймлайны и перерывы по клиентам">Полный отчёт (JSON)</button>
+          <button id="btnAvailabilityCsv" class="btn" title="CSV: клиент;availability;meets_target;up_steps;total_steps">Доступность (CSV)</button>
+          <button id="btnReportPrint" class="btn" title="Печатная версия отчёта">Печать отчёта</button>
+        </div>
+        <p class="muted small" id="reportHint">Полный отчёт включает доступность, если она рассчитана на этой вкладке.</p>
+      </div>
+    </div>
+    <div class="panel" id="printArea">
+      <h2>Сводка для отчёта</h2>
+      <div id="reportSummary"><div class="empty">Сводка появится после расчёта доступности и построения маршрутов.</div></div>
+    </div>
+  </section>
+</main>
+
+<div id="dropOverlay" hidden><div>Отпустите файл сценария (.json)</div></div>
+<div id="spinner" hidden><div class="spinner-ring"></div><div id="spinnerText">Расчёт…</div></div>
+<div id="toasts"></div>
+
+<script src="/static/vendor/three.min.js"></script>
+<script src="/static/scene3d.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>

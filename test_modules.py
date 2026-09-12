@@ -1,45 +1,44 @@
 #!/usr/bin/env python3
-"""
-Тестирование модулей напрямую
-"""
+"""Тестирование расчётных модулей напрямую — проверка импорта и базовых функций."""
 
-import sys
 import os
+import sys
 
-# Добавляем путь к модулям
-sys.path.insert(0, '/home/redfox/programming/python/satellites/backend/module')
+ROOT = os.path.dirname(os.path.abspath(__file__))
+MODULE_DIR = os.path.join(ROOT, 'backend', 'module')
+sys.path.insert(0, os.path.join(ROOT, 'backend'))
+sys.path.insert(0, MODULE_DIR)
 
 try:
     from geometry import load, validate, snapshot
     print("✓ geometry.py успешно импортирован")
-    
-    # Проверим, что можно выполнить простой тест
-    print("✓ Основные функции доступны")
-    
-    # Проверим расширенные модули
-    import importlib.util
-    
-    # Проверка routing.py
-    routing_spec = importlib.util.spec_from_file_location("routing", "/home/redfox/programming/python/satellites/backend/module/routing.py")
-    routing = importlib.util.module_from_spec(routing_spec)
-    routing_spec.loader.exec_module(routing)
+
+    # Реальный расчёт по первому доступному сценарию
+    data_dir = os.path.join(ROOT, 'data')
+    scenarios = sorted(f for f in os.listdir(data_dir) if f.endswith('.json'))
+    if scenarios:
+        path = os.path.join(data_dir, scenarios[0])
+        scenario = load(path)
+        print(f"✓ Сценарий загружен и валиден: {scenarios[0]}")
+        snap = snapshot(scenario, 0)
+        print(f"✓ Снапшот t=0: {len(snap['satellites'])} спутников, "
+              f"{len(snap['edges'])} связей")
+    else:
+        print("! В data/ нет сценариев — проверка только импорта")
+
+    import routing
     print("✓ routing.py успешно импортирован")
-    
-    # Проверка availability.py
-    availability_spec = importlib.util.spec_from_file_location("availability", "/home/redfox/programming/python/satellites/backend/module/availability.py")
-    availability = importlib.util.module_from_spec(availability_spec)
-    availability_spec.loader.exec_module(availability)
+
+    import availability
     print("✓ availability.py успешно импортирован")
-    
-    # Проверка monte_carlo.py
-    monte_carlo_spec = importlib.util.spec_from_file_location("monte_carlo", "/home/redfox/programming/python/satellites/backend/module/monte_carlo.py")
-    monte_carlo = importlib.util.module_from_spec(monte_carlo_spec)
-    monte_carlo_spec.loader.exec_module(monte_carlo)
+
+    import monte_carlo
     print("✓ monte_carlo.py успешно импортирован")
-    
+
     print("Все модули успешно импортированы!")
-    
+
 except Exception as e:
-    print(f"Ошибка импорта: {e}")
+    print(f"✗ Ошибка импорта: {e}")
     import traceback
     traceback.print_exc()
+    sys.exit(1)

@@ -20,13 +20,17 @@ import os
 import re
 import sys
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_cors import CORS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), 'data')
-UPLOAD_DIR = os.path.join(os.path.dirname(BASE_DIR), 'uploads')
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
+UPLOAD_DIR = os.path.join(PROJECT_ROOT, 'uploads')
 MODULE_DIR = os.path.join(BASE_DIR, 'module')
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
+TEMPLATE_DIR = os.path.join(FRONTEND_DIR, 'templates')
+STATIC_DIR = os.path.join(FRONTEND_DIR, 'static')
 sys.path.insert(0, MODULE_DIR)
 
 SAFE_NAME = re.compile(r'^[\w][\w\-. ]*\.json$')
@@ -55,6 +59,34 @@ def scenario_path(filename):
     raise FileNotFoundError(f'Файл не найден: {filename}')
 
 
+def apply_exclude(scenario, exclude):
+    """Клон сценария с принудительным отключением спутников на весь горизонт.
+
+    exclude — iterable id спутников; неизвестные id игнорируются.
+    Файл на диске не изменяется: отказ добавляется только в копию в памяти.
+    """
+    exclude = [sid for sid in (exclude or []) if isinstance(sid, str)]
+    if not exclude:
+        return scenario
+    known = {sat['id'] for sat in scenario['design']['satellites']}
+    horizon = scenario['environment']['horizon_s']
+    s2 = json.loads(json.dumps(scenario))
+    failures = s2.setdefault('failures', [])
+    for sid in exclude:
+        if sid in known:
+            failures.append({'satellite_id': sid, 'start_s': 0, 'end_s': horizon})
+    return s2
+
+
+def parse_exclude_arg(raw):
+    """exclude из query string: 'S01,S02' или повторяющийся ?exclude=S01&exclude=S02."""
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        return [x.strip() for x in raw.split(',') if x.strip()]
+    return [x.strip() for x in raw if isinstance(x, str) and x.strip()]
+
+
 def validation_errors(scenario):
     """validate() из geometry.py бросает ValueError с первой ошибкой —
     здесь приводим к списку человекочитаемых сообщений."""
@@ -70,8 +102,13 @@ def validation_errors(scenario):
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=TEMPLATE_DIR,
+                static_folder=STATIC_DIR, static_url_path='/static')
     CORS(app)
+
+    @app.route('/')
+    def index():
+        return render_template('index.html')
 
     @app.route('/api/health')
     def health():
@@ -178,9 +215,10 @@ def create_app():
             data = request.get_json(force=True)
             filename = data.get('file')
             t_s = data.get('timestamp', 0)
+            exclude = data.get('exclude') or []
             if not filename:
                 return jsonify({'error': 'Не указан файл сценария (поле "file")'}), 400
-            scenario = load(scenario_path(filename))
+            scenario = apply_exclude(load(scenario_path(filename)), exclude)
             t_s = max(0.0, min(float(t_s), float(scenario['environment']['horizon_s'])))
             return jsonify({'result': snapshot(scenario, t_s), 'timestamp': t_s})
         except ValueError as e:
@@ -208,7 +246,8 @@ def create_app():
         if not MODULES_AVAILABLE:
             return jsonify({'error': 'Расчётные модули недоступны'}), 500
         try:
-            scenario = load(scenario_path(filename))
+            scenario = apply_exclude(load(scenario_path(filename)),
+                                     parse_exclude_arg(request.args.get('exclude')))
             t_s = float(request.args.get('t_s', 0))
             strategy = request.args.get('strategy', 'hops')
             if strategy not in ('hops', 'latency', 'capacity'):
@@ -241,7 +280,8 @@ def create_app():
         if not MODULES_AVAILABLE:
             return jsonify({'error': 'Расчётные модули недоступны'}), 500
         try:
-            scenario = load(scenario_path(filename))
+            scenario = apply_exclude(load(scenario_path(filename)),
+                                     parse_exclude_arg(request.args.get('exclude')))
             strategy = request.args.get('strategy', 'hops')
             step_sample = int(request.args.get('step_sample', 1))
             tl = routing.compute_route_timeline(scenario, client_id, gateway_id, strategy)
@@ -303,14 +343,17 @@ def create_app():
 
     @app.route('/api/monte-carlo/<path:filename>')
     def monte_carlo_analysis(filename):
-        """?trials=100&mode=poisson|fixed_k — вероятностная оценка рисков."""
+        """?trials=100&mode=poisson|fixed_k&k=10 — вероятностная оценка рисков.
+        k — число одновременных отказов для режима fixed_k."""
         if not MODULES_AVAILABLE:
             return jsonify({'error': 'Расчётные модули недоступны'}), 500
         try:
             scenario = load(scenario_path(filename))
             trials = max(1, min(int(request.args.get('trials', 100)), 1000))
             mode = request.args.get('mode', 'poisson')
-            result = monte_carlo.monte_carlo_risk(scenario, n_trials=trials, mode=mode)
+            k_fixed = max(0, min(int(request.args.get('k', 10)), 48))
+            result = monte_carlo.monte_carlo_risk(scenario, n_trials=trials, mode=mode,
+                                                  k_fixed=k_fixed)
             result.pop('_raw_availability', None)
             return jsonify(result)
         except ValueError as e:
@@ -324,4 +367,4 @@ def create_app():
 
 
 if __name__ == '__main__':
-    create_app().run(debug=True, host='0.0.0.0', port=5002)
+    create_app().run(debug=True, host='0.0.0.0', port=5002, threaded=True)

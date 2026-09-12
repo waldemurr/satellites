@@ -5,9 +5,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Бэкенд, расчётный модуль и данные
+# Бэкенд, расчётный модуль, данные и фронтенд (Flask отдаёт / и /static)
 COPY backend/ /app/backend/
 COPY data/ /app/data/
+COPY frontend/ /app/frontend/
 
 RUN mkdir -p /app/uploads
 
