@@ -1,7 +1,7 @@
 {
   "schema_version": "cosmo-A-1.0",
   "meta": {
-    "id": "05_elliptical",
+    "id": "05_ell_outage",
     "title": "Эллиптическая орбита (eccentricity 0.01)"
   },
   "environment": {

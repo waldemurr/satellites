@@ -1,7 +1,7 @@
 {
   "schema_version": "cosmo-A-1.0",
   "meta": {
-    "id": "05_elliptical",
+    "id": "04_elliptical",
     "title": "Эллиптическая орбита (перигей 744 км, апогей 3256 км)"
   },
   "environment": {
