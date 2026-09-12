@@ -1,0 +1,394 @@
+{
+  "design": {
+    "launch_stage": 3,
+    "planes": [
+      {
+        "id": "P1",
+        "phase_deg": 0,
+        "raan_deg": 0
+      },
+      {
+        "id": "P2",
+        "phase_deg": 7.5,
+        "raan_deg": 60
+      },
+      {
+        "id": "P3",
+        "phase_deg": 15,
+        "raan_deg": 120
+      }
+    ],
+    "satellites": [
+      {
+        "id": "S01",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 0
+      },
+      {
+        "id": "S02",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 22.5
+      },
+      {
+        "id": "S03",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 45
+      },
+      {
+        "id": "S04",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 67.5
+      },
+      {
+        "id": "S05",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 90
+      },
+      {
+        "id": "S06",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 112.5
+      },
+      {
+        "id": "S07",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 135
+      },
+      {
+        "id": "S08",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 157.5
+      },
+      {
+        "id": "S09",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 180
+      },
+      {
+        "id": "S10",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 202.5
+      },
+      {
+        "id": "S11",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 225
+      },
+      {
+        "id": "S12",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 247.5
+      },
+      {
+        "id": "S13",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 270
+      },
+      {
+        "id": "S14",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 292.5
+      },
+      {
+        "id": "S15",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 315
+      },
+      {
+        "id": "S16",
+        "launch_batch": 1,
+        "plane_id": "P1",
+        "slot_deg": 337.5
+      },
+      {
+        "id": "S17",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 0
+      },
+      {
+        "id": "S18",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 22.5
+      },
+      {
+        "id": "S19",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 45
+      },
+      {
+        "id": "S20",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 67.5
+      },
+      {
+        "id": "S21",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 90
+      },
+      {
+        "id": "S22",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 112.5
+      },
+      {
+        "id": "S23",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 135
+      },
+      {
+        "id": "S24",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 157.5
+      },
+      {
+        "id": "S25",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 180
+      },
+      {
+        "id": "S26",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 202.5
+      },
+      {
+        "id": "S27",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 225
+      },
+      {
+        "id": "S28",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 247.5
+      },
+      {
+        "id": "S29",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 270
+      },
+      {
+        "id": "S30",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 292.5
+      },
+      {
+        "id": "S31",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 315
+      },
+      {
+        "id": "S32",
+        "launch_batch": 2,
+        "plane_id": "P2",
+        "slot_deg": 337.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S33",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 0
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S34",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 22.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S35",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 45
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S36",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 67.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S37",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 90
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S38",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 112.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S39",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 135
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S40",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 157.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S41",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 180
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S42",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 202.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S43",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 225
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S44",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 247.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S45",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 270
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S46",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 292.5
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S47",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 315
+      },
+      {
+        "arg_perigee_deg": 270,
+        "eccentricity": 0.01,
+        "id": "S48",
+        "launch_batch": 3,
+        "plane_id": "P3",
+        "slot_deg": 337.5
+      }
+    ]
+  },
+  "environment": {
+    "altitude_km": 599.71,
+    "arg_perigee_deg": 270,
+    "earth_angle0_deg": 12,
+    "eccentricity": 0.01,
+    "horizon_s": 86400,
+    "inclination_deg": 87,
+    "isl_range_km": 3000,
+    "min_elevation_deg": 10,
+    "orbit_type": "elliptical",
+    "step_s": 120,
+    "target_availability": 0.9
+  },
+  "failures": [],
+  "gateway_outages": [],
+  "ground_sites": [
+    {
+      "id": "G_MUR",
+      "lat_deg": 68.97,
+      "lon_deg": 33.07,
+      "name": "Murmansk reference gateway (synthetic installation)",
+      "role": "gateway"
+    },
+    {
+      "id": "C65",
+      "lat_deg": 65,
+      "lon_deg": 60,
+      "name": "Northern terminal 65",
+      "role": "client"
+    },
+    {
+      "id": "C70",
+      "lat_deg": 70,
+      "lon_deg": 90,
+      "name": "Northern terminal 70",
+      "role": "client"
+    },
+    {
+      "id": "C72",
+      "lat_deg": 72,
+      "lon_deg": 130,
+      "name": "Northern terminal 72",
+      "role": "client"
+    }
+  ],
+  "meta": {
+    "id": "05_elliptical",
+    "title": "Эллиптическая орбита (перигей 744 км, апогей 3256 км)"
+  },
+  "schema_version": "cosmo-A-1.0"
+}
