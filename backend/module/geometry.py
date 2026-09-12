@@ -95,7 +95,7 @@ def validate(s: dict) -> None:
         ):
             raise ValueError("Invalid arg_perigee_deg")
         env_e = e["eccentricity"]
-        r_p = (R + e['altitude_km']) * (1 - env_e)
+        r_p = (R + e["altitude_km"]) * (1 - env_e)
         if r_p < R + 500:
             raise ValueError(f"Perigee below 500 km: {round(r_p - R)}")
     planes = {p["id"]: p for p in d["planes"]}
@@ -170,11 +170,7 @@ def positions(s: dict, t_s: float) -> tuple[list[str], np.ndarray, np.ndarray]:
     e, d = (s["environment"], s["design"])
     pmap = {p["id"]: p for p in d["planes"]}
     inc = math.radians(e["inclination_deg"])
-    env_e = (
-        e.get("eccentricity", 0.0)
-        if e.get("orbit_type") == "elliptical"
-        else 0.0
-    )
+    env_e = e.get("eccentricity", 0.0) if e.get("orbit_type") == "elliptical" else 0.0
     ecc = np.array(
         [float(sat.get("eccentricity", env_e) or 0.0) for sat in d["satellites"]]
     )
@@ -190,7 +186,14 @@ def positions(s: dict, t_s: float) -> tuple[list[str], np.ndarray, np.ndarray]:
     ratio2 = (R / p) ** 2  # (R/p)² — для каждого аппарата
     cosi = math.cos(inc)
     # Секулярные скорости от J2 (на аппарат, т.к. e может отличаться)
-    nbar = n * (1.0 + 0.75 * J2 * ratio2 * np.sqrt(np.maximum(1.0 - ecc**2, 1e-12)) * (3.0 * cosi**2 - 1.0))
+    nbar = n * (
+        1.0
+        + 0.75
+        * J2
+        * ratio2
+        * np.sqrt(np.maximum(1.0 - ecc**2, 1e-12))
+        * (3.0 * cosi**2 - 1.0)
+    )
     odot = -1.5 * J2 * n * ratio2 * cosi  # регрессия линии узлов
     wdot = 0.75 * J2 * n * ratio2 * (5.0 * cosi**2 - 1.0)  # прецессия апсид
     M0 = np.array(
@@ -209,9 +212,12 @@ def positions(s: dict, t_s: float) -> tuple[list[str], np.ndarray, np.ndarray]:
     )
     r = a * (1 - ecc * np.cos(E))
     u = argp + wdot * t_s + nu
-    om = np.array(
-        [math.radians(pmap[x["plane_id"]]["raan_deg"]) for x in d["satellites"]]
-    ) + odot * t_s
+    om = (
+        np.array(
+            [math.radians(pmap[x["plane_id"]]["raan_deg"]) for x in d["satellites"]]
+        )
+        + odot * t_s
+    )
     cu, su, co, so = (np.cos(u), np.sin(u), np.cos(om), np.sin(om))
     xyz = np.stack(
         (

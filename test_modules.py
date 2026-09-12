@@ -85,14 +85,19 @@ try:
         nn = math.sqrt(geometry.MU / a**3)
         out = []
         for sat in des["satellites"]:
-            u = math.radians(sat["slot_deg"] + pmap[sat["plane_id"]]["phase_deg"]) + nn * t_s
+            u = (
+                math.radians(sat["slot_deg"] + pmap[sat["plane_id"]]["phase_deg"])
+                + nn * t_s
+            )
             om = math.radians(pmap[sat["plane_id"]]["raan_deg"])
             out.append(
                 a
                 * np.array(
                     [
-                        math.cos(om) * math.cos(u) - math.sin(om) * math.sin(u) * math.cos(inc),
-                        math.sin(om) * math.cos(u) + math.cos(om) * math.sin(u) * math.cos(inc),
+                        math.cos(om) * math.cos(u)
+                        - math.sin(om) * math.sin(u) * math.cos(inc),
+                        math.sin(om) * math.cos(u)
+                        + math.cos(om) * math.sin(u) * math.cos(inc),
                         math.sin(u) * math.sin(inc),
                     ]
                 )
@@ -107,13 +112,17 @@ try:
     finally:
         geometry.J2 = saved_j2
     manual = two_body_xyz(circ, 3600)
-    assert np.allclose(xyz_0, manual, atol=1e-6), "двухтельная задача (J2=0) не сходится"
+    assert np.allclose(
+        xyz_0, manual, atol=1e-6
+    ), "двухтельная задача (J2=0) не сходится"
     print("✓ Регрессия: J2=0, e=0 — точное совпадение с двухтельной задачей")
 
     # влияние J2: отклонение от двухтельной задачи растёт и правдоподобно по величине
     _, xyz_j2, _ = positions(circ, 86400)
     dev = float(np.max(np.linalg.norm(xyz_j2 - two_body_xyz(circ, 86400), axis=1)))
-    assert 50.0 < dev < 20000.0, f"отклонение от J2 вне ожидаемого диапазона: {dev:.0f} км"
+    assert (
+        50.0 < dev < 20000.0
+    ), f"отклонение от J2 вне ожидаемого диапазона: {dev:.0f} км"
     print(f"✓ J2 учитывается: отклонение от двухтельной задачи за сутки ≈ {dev:.0f} км")
     # регрессия узлов: при i=87° (прямое движение) узлы дрейфуют к западу
     _, xyz_t0, _ = positions(circ, 0)
